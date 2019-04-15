@@ -1,0 +1,62 @@
+###############################################################################
+# 1. Program Code
+###############################################################################
+
+KALMAN <- function(DATA,  #Data file
+                   n,     #Number of timepoints
+                   v,     #Number of observed variables
+                   nl,    #Number of latent variables
+                   Fm,    #State design matrix
+                   Q,     #State process error covariance matrix
+                   H,     #Measurement design matrix
+                   R,     #Measurement error covariance matrix
+                   x.0,   #Initial state estimate vector
+                   P.0)   #Initial state estimation error covariance
+                   {      #Begin KALMAN function code
+ #Data adjustment
+ DA <- t(DATA)
+ #State a priori estimate storage
+ x.a <- matrix(0, nl, n)
+ #State posterior estimate storage
+ x.p <- matrix(0, nl, n)
+ #State covariance a priori estimate storage
+ P.a <- array(0, dim=c(nl,nl,n))
+ #State covariance posterior storage
+ P.p <- array(0, dim=c(nl,nl,n))
+ #Kalman gain storage
+ K <- array(0, dim=c(nl,v,n))
+
+ #Initial prediction
+ x.a[,1] <- Fm%*%x.0
+ P.a[,,1] <- Fm%*%P.0%*%t(Fm)+Q
+
+ #Propogation
+ for(k in 1:n){  #Begin loop over time points
+  #A priori state estimation error covariance update
+  if(k > 1){ P.a[,,k] <- Fm%*%P.p[,,(k-1)]%*%t(Fm)+Q }
+  #Kalman gain update
+  K[,,k] <- P.a[,,k]%*%t(H)%*%solve(H%*%P.a[,,k]%*%t(H)+R)
+  #State a priori update
+  if(k > 1){ x.a[,k] <- Fm%*%x.p[,(k-1)] }
+  #State posterior update
+  x.p[,k] <- x.a[,k]+K[,,k]%*%(DA[,k]-H%*%x.a[,k])
+  #Posterior estimation error covariance update
+  if(nl > 1){
+   P.p[,,k] <- (diag(1,nl,nl)-K[,,k]%*%H)%*%P.a[,,k]%*%t(diag(1,nl,nl)-K[,,k]%*%H)+K[,,k]%*%R%*%t(K[,,k])
+   } else {
+   P.p[,,k] <- (diag(1,nl,nl)-K[,,k]%*%H)%*%P.a[,,k]%*%t(diag(1,nl,nl)-K[,,k]%*%H)+K[,,k]%*%R%*%t(t(K[,,k]))
+   }
+  } #End loop over time points
+
+ #State output adjustment
+ x.a <- t(x.a)
+ x.p <- t(x.p)
+
+ KALMANout <- list(x.a = x.a,
+                   x.p = x.p,
+                   P.a = P.a,
+                   P.p = P.p,
+                   K = K)
+ return(KALMANout)
+
+}  #End KALMAN function code
